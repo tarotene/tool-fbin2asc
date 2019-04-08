@@ -1,33 +1,34 @@
-# コンパイラ設定
-FC = ifort
-# FFLAGS = -O2 -ipo -mkl
-# FFLAGS = -O3 -parallel -ipo -mkl
-FFLAGS = -mkl -traceback
-LDFLAGS = -mkl
+# 分割コンパイル
 
-# マクロ
-TARGET = ./bin/bin2asc
-LIBDIR = ../genlibs
-LIBS = $(wildcard $(LIBDIR)/*.f90)
-LIBOBJS = $(LIBS:.f90=.o)
-SRCDIR = ./src
-SRCS = $(wildcard $(SRCDIR)/*.f90)
-SRCOBJS = $(SRCS:.f90=.o)
-MODS = $(wildcard ./*.mod)
+FC=ifort 
+FCFLAGS=-O2 -mkl
 
-# 依存関係
-$(TARGET): $(SRCOBJS) $(LIBOBJS)
-	$(FC) -o $@ $^ $(LDFLAGS)
-$(SRCOBJS): $(SRCS) $(LIBOBJS)
-$(LIBOBJS): $(LIBS)
+.SUFFIXES: .f90
 
-# サフィックスルール
-.SUFFIXES: .o .f90
-.f90.o:
-	$(FC) $(FFLAGS) -o $@ -c $<
+TARGET=./bin/fbin2asc
+SRCDIR=./src
+SRCS=$(wildcard $(SRCDIR)/*.f90)
+LIBDIR=./libsard $(LIBDIR)/*.f90)
+OBJDIR=./obj
+OBJS=$(addprefix $(OBJDIR)/, $(notdir $(SRCS:.f90=.o)))
+LIBOBJS=$(addprefix $(OBJDIR)/, $(notdir $(LIBS:.f90=.o)))
+MODDIR=./mod
 
-# 疑似ターゲット
+$(TARGET): $(OBJS) $(LIBOBJS)
+	$(FC) $(FCFLAGS) $^ -o $@
+
+$(OBJDIR)/%.o: $(LIBDIR)/%.f90
+	$(FC) $(FCFLAGS) -c $< -o $@ -module $(MODDIR)
+
+$(OBJDIR)/%.o: $(SRCDIR)/%.f90 $(LIBOBJS)
+	$(FC) $(FCFLAGS) -c $< -o $@ -module $(MODDIR)
+
+$(MODDIR)/%.mod: $(LIBDIR)/%.f90 $(OBJDIR)/%.o
+	@:
+
 .PHONY: all clean
-all: $(TARGET)
+
+all: clean $(TARGET)
+
 clean:
-	rm -f $(MODS) $(LIBOBJS) $(SRCOBJS) $(TARGET)
+	rm -f $(OBJDIR)/* $(MODDIR)/* $(TARGET)
